@@ -1,0 +1,15 @@
+{
+  "query": {
+    "bool": {
+      "must": [{
+        "term": {
+          "measurements.dimensions.units": "mm"
+        }
+      }, {
+        "term": {
+          "measurements.dimensions.dimension": "width"
+        }
+      }]
+    }
+  }
+}
