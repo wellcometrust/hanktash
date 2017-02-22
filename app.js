@@ -20,6 +20,8 @@ s.onload = function() {
   var objNumber = $('.details-Object-Number dd').text().trim();
 
   if (objNumber.startsWith('A')) {
+    objNumber = objNumber.replace('A', '');
+
     ass.find('h2').text('Henry Also Bought');
     ass.css({
       padding: '1.5em 0',
@@ -31,26 +33,35 @@ s.onload = function() {
       resultcard.addClass('large-3 medium-4 small-6 columns end');
       resultcard.find('a').attr({ href: href });
       resultcard.find('.resultcard__title').text(title);
-      resultcard.find('img').attr('src', imageSrc);
+
+      if (imageSrc) {
+        resultcard.find('img').attr('src', imageSrc);
+      }
+      else {
+        resultcard.find('img').remove();
+      }
+
       return resultcard;
     }
 
-    function createPanel() {
+    function createPanel(collections, subjects) {
       // archives
-      var archive = $.parseHTML('<li>Lister Institute archive</li>');
-      $(archive).css({
-        'background-image': 'url(/assets/icons/archive.svg)',
-        'background-size': '.75rem .75rem',
-        'background-repeat': 'no-repeat',
-        'background-position': 'left center',
-        'padding-left': '1rem'
+      const collectionsEls = collections.slice(0, 3).map(col => $(`<li>${col.title}</li>`));
+      collectionsEls.forEach(col => {
+        col.css({
+          'background-image': 'url(/assets/icons/archive.svg)',
+          'background-size': '.75rem .75rem',
+          'background-repeat': 'no-repeat',
+          'background-position': 'left center',
+          'padding-left': '1rem'
+        });
       });
+      console.info(collections, collectionsEls);
 
       // subjects
-      var subjects = new Array();
-      subjects.push($.parseHTML('<li>Surgery</li>'));
-      subjects.push($.parseHTML('<li>Antispetics</li>'));
-      subjects.forEach(function(subject) {
+      const subjectsEls = subjects.map(sub => $(`<li>${sub.name}</li>`));
+
+      subjectsEls.forEach(function(subject) {
         $(subject).css({
           'background-image': 'url(/assets/icons/list.svg)',
           'background-size': '.75rem .75rem',
@@ -62,8 +73,8 @@ s.onload = function() {
 
       // create panel
       var list = $('<ul />');
-      list.append(archive);
-      subjects.forEach(function(subject) {
+      collectionsEls.forEach(c => list.append(c));
+      subjectsEls.forEach(function(subject) {
         list.append(subject);
       });
 
@@ -80,29 +91,57 @@ s.onload = function() {
       return panel;
     }
 
-    $.ajax('https://api.wellcomecollection.org/api/hack/record', { data: {accession_id: objNumber} }).then(resp => {
-      var newThings = resp.adjacent_accessions.map(adjass => {
+    var q1 = $.ajax('https://api.wellcomecollection.org/api/hack/smg_record/accession', { data: {accession_id: objNumber} }).then(resp => {
+      var data = resp.sort(function(a, b) {
+        if (a.image_uri) {
+          return -1;
+        }
+        else {
+          return 1;
+        }
+      });
+
+      data = data.filter(item => {
+        og_url = $('meta[property="og:url"]').attr('content');
+        if (item.uri != og_url) {
+          return true;
+        }
+        else {
+          return false;
+        }
+      });
+
+      var newThings = data.slice(0, 4).map(adjass => {
         return createResultcard(adjass.title, adjass.image_uri, adjass.uri);
       });
 
-      var panel = createPanel();
 
-      ass.find('.columns.end').remove();
-      ass.find('.nested.row').append(newThings);
-      ass.find('.nested.row').append(panel);
+      var person = $('ul.related-people li:first').text().trim();
+      var q2 = $.ajax('https://api.wellcomecollection.org/api/hack/collection', { data: {q: person} }).then(resp => {
+        var collections = resp.collections;
+        var subjects = resp.subjects;
+        var panel = createPanel(collections, subjects);
 
-      var section = $('<section style="background: white" />');
-      var row = $('<div class="row" />');
+        ass.find('.columns.end').remove();
+        ass.find('.nested.row').append(newThings);
+        ass.find('.nested.row').append(panel);
 
-      section.append(row);
-      row.append(ass);
-      row.append(panel);
+        var section = $('<section style="background: white" />');
+        var row = $('<div class="row" />');
 
-      ass.wrap('<div class="columns medium-8" />');
-      panel.wrap('<div class="columns medium-4" />');
+        section.append(row);
+        row.append(ass);
+        row.append(panel);
 
-      related.before(section);
+        ass.wrap('<div class="columns medium-8" />');
+        panel.wrap('<div class="columns medium-4" />');
+
+        related.before(section);
+
+      });
+
     });
+
   }
 
 };
